@@ -1,0 +1,145 @@
+---
+title: "ESM 244 Lab 1"
+author: "Hanna Buechi"
+date: "1/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Objectives:
+
+- basic review (data wrangling)
+- intro to spatial data in R with sf
+
+1. Attach packages
+
+```{r load_packages}
+
+library(tidyverse)
+library(sf)
+library(leaflet)
+#library(tmap)
+
+
+# Issue 1: did not open in correct working directory, cannot read_csv()
+# Issue 2: installed sf() but could not load
+
+```
+
+2. Review on reading, exploring, wrangling, and visualizing data
+
+a. Read in the data
+```{r}
+
+wine <- read_csv("wine_data.csv") # this is already in my working directory (to the right) that I cloned from GitHub
+
+# View(wine) my tmap is taking a long time to install, so I can't run code at the moment. I'm keeping track of what Allison does until I can run my own code.
+# I get an error that I'm not in the right working directory ('/Users/hannabuechi/Desktop' --> should be in my Github one) -- how do I make sure I set the working directory from the beginning
+
+```
+
+
+b. Wrangling
+```{r}
+
+wine_new <- wine %>% 
+  select(country, province, winery, region_1, points, price) %>% 
+  rename(state = province) %>% # makes a new column, changing the name to state
+  filter(state == "California" | state == "Oregon" | state == "Washington") %>% # filters out rows that match a condition
+  mutate(ppd = points/price) %>% # new column named ppd
+  arrange(-ppd)
+
+```
+
+c. Use group_by() and summarize() to find summary statistics by group
+```{r}
+
+wine_summary <- wine_new %>% # make a new dataframe (tibble??)
+  group_by(state) %>% # create groups in R's brain that we wont' see but do exist to calculate things based on these level
+  summarize(
+    mean_ppd = mean(ppd, na.rm = TRUE), # remove NA and calculate mean, WA has highest points per price
+    max_ppd = max(ppd, na.rm = TRUE),
+    min_ppd = min(ppd, na.rm = TRUE),
+    med_ppd = median(ppd, na.rm = TRUE)
+  )
+
+```
+
+d. A few gg-graphics
+
+```{r}
+
+wine_hists <- ggplot(wine_new, aes(x = ppd)) +
+  geom_histogram(aes(fill = state)) +
+  facet_wrap(~state) # there are some catches with what this is representing by state... explore
+
+# Bare min for ggplot: ggplot(), data, aes() for x/y, type of graph
+
+wine_hists
+```
+
+New graph: scatterplot graph of price vs. point, with color determined by state, adding a linear model trendline on top of it
+
+```{r}
+
+wine_points <- ggplot(wine_new, aes(x = price, y = points)) +
+  geom_point(aes(color = state), alpha = 0.5) + # points use "color", bars use "fill"
+  geom_smooth(color = "black", method = "lm", se = FALSE) + # puts trendlines in by OLS (ordinary least sq regression)
+  scale_color_manual(values = c("royalblue","mediumorchid1","orange")) +
+  facet_wrap(~state) + # so that WA shows up
+  theme_light()
+
+```
+
+2. California counties (spatial data) using sf
+
+```{r}
+
+ca_counties <- st_read(dsn = ".", layer = "CA_Counties_TIGER2016") # st for spatiotemporal; "." if we are already in our working directory # prefix for all of the associated spatial data files, ie. .cpg, .dbf, .shp, etc
+
+# plot(ca_counties) # don't do this, it might take a long time! It's trying to map and colorcode
+
+# View(ca_counties) to see attributes
+
+# sf uses sticky geometries ; KEEPS GEOMETRIES OF DATAFRAME --> treat it like a normal dataframe # significant to "keep geometry" --> retains all of the polygon information
+
+ca_land <- ca_counties %>% 
+  select(NAME, ALAND) # simplified information that retains polygon information
+
+ca_pop_inc <- read_csv("ca_pop_inc.csv") %>% 
+  rename(NAME = COUNTY)
+
+ca_df <- full_join(ca_land, ca_pop_inc) %>%  # keeps every row even if it doesn't have a match in the other dataframe
+  select(NAME, MedFamilyIncome)
+
+```
+
+d. Use geom_sf to make a map in ggplot
+
+```{r}
+
+ca_income <- ggplot(ca_df) +
+  geom_sf(aes(fill = MedFamilyIncome))
+
+ca_income
+
+ca_df_transform <- st_transform(ca_df, crs = 4326)
+
+leaflet(ca_df_transform) %>% # needs a particular coordinate system
+  addTiles() %>% 
+  addPolygons() # interactive map of polygons
+
+```
+
+
+
+
+
+
+
+
+
+
