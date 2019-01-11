@@ -21,11 +21,9 @@ Objectives:
 library(tidyverse)
 library(sf)
 library(leaflet)
-#library(tmap)
+library(tmap)
 
-
-# Issue 1: did not open in correct working directory, cannot read_csv()
-# Issue 2: installed sf() but could not load
+# Issue: installed sf() and tmap() but could not load
 
 ```
 
